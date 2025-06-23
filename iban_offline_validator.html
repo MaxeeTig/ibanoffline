@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IBAN Validator</title>
+</head>
+<body>
+  <h2>IBAN Validator</h2>
+  <input type="text" id="ibanInput" placeholder="Enter IBAN">
+  <button onclick="validateIBAN()">Validate</button>
+  <p id="result"></p>
+
+  <script>
+    function validateIBAN() {
+      const iban = document.getElementById("ibanInput").value.replace(/\s+/g, '').toUpperCase();
+      if (!/^[A-Z0-9]+$/.test(iban) || iban.length < 15 || iban.length > 34) {
+        document.getElementById("result").textContent = "Invalid IBAN format";
+        return;
+      }
+
+      const rearranged = iban.slice(4) + iban.slice(0, 4);
+      const numericIBAN = rearranged.replace(/[A-Z]/g, (char) => char.charCodeAt(0) - 55);
+
+      let remainder = numericIBAN;
+      while (remainder.length > 2) {
+        const block = remainder.slice(0, 9);
+        remainder = (parseInt(block, 10) % 97) + remainder.slice(block.length);
+      }
+
+      const isValid = parseInt(remainder, 10) % 97 === 1;
+      document.getElementById("result").textContent = isValid ? "Valid IBAN" : "Invalid IBAN";
+    }
+  </script>
+</body>
+</html>
