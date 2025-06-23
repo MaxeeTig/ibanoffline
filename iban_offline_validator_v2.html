@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IBAN Offline Validator</title>
+  <style>
+    body {
+      background: #f4f7fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #fff;
+      padding: 2rem 2.5rem 2rem 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      min-width: 340px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 1.2rem;
+      color: #246bad;
+    }
+    input[type="text"] {
+      width: 85%;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+      border: 1px solid #b0c4de;
+      border-radius: 5px;
+      font-size: 1.1rem;
+      outline: none;
+      transition: border 0.3s;
+    }
+    input[type="text"]:focus {
+      border: 1.5px solid #246bad;
+    }
+    button {
+      background: #246bad;
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 5px;
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #194d7b;
+    }
+    .status {
+      margin-top: 1.1rem;
+      font-size: 1.08rem;
+      font-weight: 500;
+    }
+    .success {
+      color: #1aa260;
+    }
+    .error {
+      color: #d93025;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>IBAN Offline Validator</h2>
+    <form id="ibanForm" autocomplete="off">
+      <input type="text" id="ibanInput" placeholder="Enter IBAN" autofocus>
+      <br>
+      <button type="submit">Validate</button>
+    </form>
+    <div id="result" class="status"></div>
+    <div id="ibanDetails" style="display:none; margin-top:1.5rem; text-align:left;">
+      <h3>IBAN Details:</h3>
+      <ul style="list-style:none; padding:0;">
+        <li><b>Country:</b> <span id="country"></span></li>
+        <li><b>Country Code:</b> <span id="countryCode"></span></li>
+        <li><b>SEPA:</b> <span id="sepa"></span></li>
+        <li><b>Length:</b> <span id="length"></span></li>
+        <li><b>Account Check:</b> <input type="checkbox" id="accountCheck" disabled></li>
+      </ul>
+    </div>
+  </div>
+  <script>
+    // IBAN registry data (auto-generated from iban-registry_1.txt)
+    const ibanRegistry = [
+      { country: 'Andorra', code: 'AD', sepa: true, length: 24 },
+      { country: 'United Arab Emirates (The)', code: 'AE', sepa: false, length: 23 },
+      { country: 'Albania', code: 'AL', sepa: false, length: 28 },
+      { country: 'Austria', code: 'AT', sepa: true, length: 20 },
+      { country: 'Azerbaijan', code: 'AZ', sepa: false, length: 28 },
+      { country: 'Bosnia and Herzegovina', code: 'BA', sepa: false, length: 20 },
+      { country: 'Belgium', code: 'BE', sepa: true, length: 16 },
+      { country: 'Bulgaria', code: 'BG', sepa: true, length: 22 },
+      { country: 'Bahrain', code: 'BH', sepa: false, length: 22 },
+      { country: 'Burundi', code: 'BI', sepa: false, length: 27 },
+      { country: 'Brazil', code: 'BR', sepa: false, length: 29 },
+      { country: 'Republic of Belarus', code: 'BY', sepa: false, length: 28 },
+      { country: 'Switzerland', code: 'CH', sepa: true, length: 21 },
+      { country: 'Costa Rica', code: 'CR', sepa: false, length: 22 },
+      { country: 'Cyprus', code: 'CY', sepa: true, length: 28 },
+      { country: 'Czechia', code: 'CZ', sepa: true, length: 24 },
+      { country: 'Germany', code: 'DE', sepa: true, length: 22 },
+      { country: 'Djibouti', code: 'DJ', sepa: false, length: 27 },
+      { country: 'Denmark', code: 'DK', sepa: true, length: 18 },
+      { country: 'Dominican Republic', code: 'DO', sepa: false, length: 28 },
+      { country: 'Estonia', code: 'EE', sepa: true, length: 20 },
+      { country: 'Egypt', code: 'EG', sepa: false, length: 29 },
+      { country: 'Spain', code: 'ES', sepa: true, length: 24 },
+      { country: 'Finland', code: 'FI', sepa: true, length: 18 },
+      { country: 'Falkland Islands', code: 'FK', sepa: false, length: 18 },
+      { country: 'Faroe Islands', code: 'FO', sepa: false, length: 18 },
+      { country: 'France', code: 'FR', sepa: true, length: 27 },
+      { country: 'United Kingdom', code: 'GB', sepa: true, length: 22 },
+      { country: 'Georgia', code: 'GE', sepa: false, length: 22 },
+      { country: 'Gibraltar', code: 'GI', sepa: true, length: 23 },
+      { country: 'Greenland', code: 'GL', sepa: false, length: 18 },
+      { country: 'Greece', code: 'GR', sepa: true, length: 27 },
+      { country: 'Guatemala', code: 'GT', sepa: false, length: 28 },
+      { country: 'Honduras', code: 'HN', sepa: false, length: 28 },
+      { country: 'Croatia', code: 'HR', sepa: true, length: 21 },
+      { country: 'Hungary', code: 'HU', sepa: true, length: 28 },
+      { country: 'Ireland', code: 'IE', sepa: true, length: 22 },
+      { country: 'Israel', code: 'IL', sepa: false, length: 23 },
+      { country: 'Iraq', code: 'IQ', sepa: false, length: 23 },
+      { country: 'Iceland', code: 'IS', sepa: true, length: 26 },
+      { country: 'Italy', code: 'IT', sepa: true, length: 27 },
+      { country: 'Jordan', code: 'JO', sepa: false, length: 30 },
+      { country: 'Kuwait', code: 'KW', sepa: false, length: 30 },
+      { country: 'Kazakhstan', code: 'KZ', sepa: false, length: 20 },
+      { country: 'Lebanon', code: 'LB', sepa: false, length: 28 },
+      { country: 'Saint Lucia', code: 'LC', sepa: false, length: 32 },
+      { country: 'Liechtenstein', code: 'LI', sepa: true, length: 21 },
+      { country: 'Lithuania', code: 'LT', sepa: true, length: 20 },
+      { country: 'Luxembourg', code: 'LU', sepa: true, length: 20 },
+      { country: 'Latvia', code: 'LV', sepa: true, length: 21 },
+      { country: 'Libya', code: 'LY', sepa: false, length: 25 },
+      { country: 'Monaco', code: 'MC', sepa: true, length: 27 },
+      { country: 'Moldova', code: 'MD', sepa: false, length: 24 },
+      { country: 'Montenegro', code: 'ME', sepa: false, length: 22 },
+      { country: 'Macedonia', code: 'MK', sepa: false, length: 19 },
+      { country: 'Mongolia', code: 'MN', sepa: false, length: 20 },
+      { country: 'Mauritania', code: 'MR', sepa: false, length: 27 },
+      { country: 'Malta', code: 'MT', sepa: true, length: 31 },
+      { country: 'Mauritius', code: 'MU', sepa: false, length: 30 },
+      { country: 'Nicaragua', code: 'NI', sepa: false, length: 28 },
+      { country: 'Netherlands (The)', code: 'NL', sepa: true, length: 18 },
+      { country: 'Norway', code: 'NO', sepa: true, length: 15 },
+      { country: 'Oman', code: 'OM', sepa: false, length: 23 },
+      { country: 'Pakistan', code: 'PK', sepa: false, length: 24 },
+      { country: 'Poland', code: 'PL', sepa: true, length: 28 },
+      { country: 'Palestine, State of', code: 'PS', sepa: false, length: 29 },
+      { country: 'Portugal', code: 'PT', sepa: true, length: 25 },
+      { country: 'Qatar', code: 'QA', sepa: false, length: 29 },
+      { country: 'Romania', code: 'RO', sepa: true, length: 24 },
+      { country: 'Serbia', code: 'RS', sepa: false, length: 22 },
+      { country: 'Russia', code: 'RU', sepa: false, length: 33 },
+      { country: 'Saudi Arabia', code: 'SA', sepa: false, length: 24 },
+      { country: 'Seychelles', code: 'SC', sepa: false, length: 31 },
+      { country: 'Sudan', code: 'SD', sepa: false, length: 18 },
+      { country: 'Sweden', code: 'SE', sepa: true, length: 24 },
+      { country: 'Slovenia', code: 'SI', sepa: true, length: 19 },
+      { country: 'Slovakia', code: 'SK', sepa: true, length: 24 },
+      { country: 'San Marino', code: 'SM', sepa: true, length: 27 },
+      { country: 'Somalia', code: 'SO', sepa: false, length: 23 },
+      { country: 'Sao Tome and Principe', code: 'ST', sepa: false, length: 25 },
+      { country: 'El Salvador', code: 'SV', sepa: false, length: 28 },
+      { country: 'Timor-Leste', code: 'TL', sepa: false, length: 23 },
+      { country: 'Tunisia', code: 'TN', sepa: false, length: 24 },
+      { country: 'Turkey', code: 'TR', sepa: false, length: 26 },
+      { country: 'Ukraine', code: 'UA', sepa: false, length: 29 },
+      { country: 'Vatican City State', code: 'VA', sepa: false, length: 22 },
+      { country: 'Virgin Islands', code: 'VG', sepa: false, length: 24 },
+      { country: 'Kosovo', code: 'XK', sepa: false, length: 20 },
+      { country: 'Yemen', code: 'YE', sepa: false, length: 30 }
+    ];
+
+    function validateIBAN(iban) {
+      // Remove spaces and convert to uppercase
+      iban = iban.replace(/\s+/g, '').toUpperCase();
+      // Basic format check
+      if (!/^[A-Z0-9]+$/.test(iban) || iban.length < 15 || iban.length > 34) return false;
+      // Rearrange
+      const rearranged = iban.slice(4) + iban.slice(0, 4);
+      // Convert letters to numbers (A=10, B=11, ..., Z=35)
+      const numericIban = rearranged.replace(/[A-Z]/g, ch => (ch.charCodeAt(0) - 55));
+      // Compute mod 97
+      let remainder = numericIban;
+      while (remainder.length > 2) {
+        const block = remainder.slice(0, 9);
+        remainder = (parseInt(block, 10) % 97) + remainder.slice(block.length);
+      }
+      return parseInt(remainder, 10) % 97 === 1;
+    }
+
+    document.getElementById('ibanForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const iban = document.getElementById('ibanInput').value;
+      const result = document.getElementById('result');
+      const details = document.getElementById('ibanDetails');
+      const detailsFields = {
+        country: document.getElementById('country'),
+        countryCode: document.getElementById('countryCode'),
+        sepa: document.getElementById('sepa'),
+        length: document.getElementById('length'),
+        accountCheck: document.getElementById('accountCheck')
+      };
+      const countryCode = iban.replace(/\s+/g, '').toUpperCase().slice(0,2);
+      const registry = ibanRegistry.find(entry => entry.code === countryCode);
+      const isValid = validateIBAN(iban) && registry && iban.replace(/\s+/g, '').length === registry.length;
+      if (isValid) {
+        result.textContent = 'Valid IBAN ✅';
+        result.className = 'status success';
+        details.style.display = '';
+        detailsFields.country.textContent = registry.country;
+        detailsFields.countryCode.textContent = registry.code;
+        detailsFields.sepa.textContent = registry.sepa ? 'Yes' : 'No';
+        detailsFields.length.textContent = registry.length;
+        detailsFields.accountCheck.checked = true;
+      } else {
+        result.textContent = 'Invalid IBAN ❌';
+        result.className = 'status error';
+        details.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
