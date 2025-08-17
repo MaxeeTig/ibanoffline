@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IBAN Offline Validator</title>
+  <style>
+    body {
+      background: #f4f7fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #fff;
+      padding: 2rem 2.5rem 2rem 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      min-width: 340px;
+      max-width: 500px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 1.2rem;
+      color: #246bad;
+    }
+    input[type="text"] {
+      width: 85%;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+      border: 1px solid #b0c4de;
+      border-radius: 5px;
+      font-size: 1.1rem;
+      outline: none;
+      transition: border 0.3s;
+    }
+    input[type="text"]:focus {
+      border: 1.5px solid #246bad;
+    }
+    button {
+      background: #246bad;
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 5px;
+      font-size: 1.05rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #194d7b;
+    }
+    .status {
+      margin-top: 1.1rem;
+      font-size: 1.08rem;
+      font-weight: 500;
+    }
+    .success {
+      color: #1aa260;
+    }
+    .error {
+      color: #d93025;
+    }
+    .details-section {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: left;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 1rem;
+    }
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .detail-item {
+      margin-bottom: 0.5rem;
+    }
+    .detail-label {
+      font-weight: 600;
+      color: #555;
+    }
+    .contact-info {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px dashed #ccc;
+    }
+    /* Add this new style for BIC display */
+    .bic-info {
+      margin-top: 1rem;
+      padding: 0.5rem;
+      background: #f0f8ff;
+      border-radius: 5px;
+    }
+    .bic-info p {
+      margin: 0.3rem 0;
+    }
+    .bic-label {
+      font-weight: 600;
+      color: #246bad;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>IBAN Offline Validator</h2>
+    <form id="ibanForm" autocomplete="off">
+      <input type="text" id="ibanInput" placeholder="Enter IBAN" autofocus>
+      <br>
+      <button type="submit">Validate</button>
+    </form>
+    <div id="result" class="status"></div>
+    <div id="ibanDetails" class="details-section">
+      <h3>IBAN Details:</h3>
+      <div class="details-grid">
+        <div class="detail-item"><span class="detail-label">Country:</span> <span id="country"></span></div>
+        <div class="detail-item"><span class="detail-label">Country Code:</span> <span id="countryCode"></span></div>
+        <div class="detail-item"><span class="detail-label">SEPA:</span> <span id="sepa"></span></div>
+        <div class="detail-item"><span class="detail-label">IBAN Length:</span> <span id="length"></span></div>
+        <div class="detail-item"><span class="detail-label">BBAN Length:</span> <span id="bbanLength"></span></div>
+        <div class="detail-item"><span class="detail-label">BBAN Structure:</span> <span id="bbanStructure"></span></div>
+        <div class="detail-item"><span class="detail-label">Bank ID Position:</span> <span id="bankIdPos"></span></div>
+        <div class="detail-item"><span class="detail-label">Bank ID Pattern:</span> <span id="bankIdPattern"></span></div>
+        <div class="detail-item"><span class="detail-label">Effective Date:</span> <span id="effectiveDate"></span></div>
+      </div>
+      <div class="contact-info">
+        <div class="detail-item"><span class="detail-label">Regulating Authority:</span> <span id="authority"></span></div>
+        <div class="detail-item"><span class="detail-label">Contact Email:</span> <span id="contactEmail"></span></div>
+      </div>
+      <div id="bicInfo" class="bic-info" style="display:none;">
+        <p><span class="bic-label">Bank Name:</span> <span id="bankName"></span></p>
+        <p><span class="bic-label">SWIFT/BIC Code:</span> <span id="swiftCode"></span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include the external JavaScript file with iban data -->
+  <script src="./iban_data/iban_data.js"></script>
+  <script src="./sort_codes/de_bank_data.js"></script>
+
+  <script>
+
+
+function validateIBAN(iban) {
+      // Remove spaces and convert to uppercase
+      iban = iban.replace(/\s+/g, '').toUpperCase();
+      
+      // Basic format check
+      if (!/^[A-Z0-9]+$/.test(iban) || iban.length < 15 || iban.length > 34) return false;
+      
+      // Check country code exists in registry
+      const countryCode = iban.slice(0, 2);
+      const registry = ibanRegistry.find(entry => entry.code === countryCode);
+      if (!registry) return false;
+      
+      // Check length matches country specification
+      if (iban.length !== registry.length) return false;
+      
+      // Rearrange for mod-97 check
+      const rearranged = iban.slice(4) + iban.slice(0, 4);
+      
+      // Convert letters to numbers (A=10, B=11, ..., Z=35)
+      const numericIban = rearranged.replace(/[A-Z]/g, ch => (ch.charCodeAt(0) - 55));
+      
+      // Compute mod 97
+      let remainder = numericIban;
+      while (remainder.length > 2) {
+        const block = remainder.slice(0, 9);
+        remainder = (parseInt(block, 10) % 97) + remainder.slice(block.length);
+      }
+      
+      return parseInt(remainder, 10) % 97 === 1;
+    }
+
+function extractBankCodeFromIBAN(iban, countryCode) {
+      const ibanClean = iban.replace(/\s+/g, '');
+      
+      // Get the country's bank code position from ibanRegistry
+      //const registry = ibanRegistry.find(entry => entry.code === countryCode);
+      //if (!registry || !registry.bankIdPos) return null;
+      
+      // Extract positions (format is "1-4" or similar)
+      //const [start, end] = registry.bankIdPos.split('-').map(Number);
+      //return ibanClean.substring(start - 1, end); // Convert to 0-based index
+
+      // For Germany - positions 4-12 (8 digits)
+  if (countryCode === 'DE') {
+    return ibanClean.substring(4, 12); // Extract BLZ (Bankleitzahl)
+  }
+  return null;
+    }
+
+function findBankInfo(countryCode, bankCode) {
+      if (countryCode === 'DE') {
+        return deBankData.find(bank => bank.sortCode === bankCode);
+      }
+      // Add other country mappings here if needed
+      return null;
+    }
+
+    document.getElementById('ibanForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const iban = document.getElementById('ibanInput').value;
+      const result = document.getElementById('result');
+      const details = document.getElementById('ibanDetails');
+      const bicInfo = document.getElementById('bicInfo');
+      
+      // Reset BIC info display
+      bicInfo.style.display = 'none';
+
+      // Get country code from IBAN
+      const countryCode = iban.replace(/\s+/g, '').toUpperCase().slice(0, 2);
+      
+      // Find registry entry
+      const registry = ibanRegistry.find(entry => entry.code === countryCode);
+      
+      // Validate IBAN
+      const isValid = validateIBAN(iban);
+      
+      if (isValid && registry) {
+        result.textContent = `Valid ${registry.code} IBAN ✅`;
+        result.className = 'status success';
+        details.style.display = 'block';  // Changed from '' to 'block'
+        
+        // Update details fields
+        document.getElementById('country').textContent = registry.country;
+        document.getElementById('countryCode').textContent = registry.code;
+        document.getElementById('sepa').textContent = registry.sepa ? 'Yes' : 'No';
+        document.getElementById('length').textContent = registry.length;
+        document.getElementById('bbanLength').textContent = registry.bbanLength;
+        document.getElementById('bbanStructure').textContent = registry.bbanStructure;
+        document.getElementById('bankIdPos').textContent = registry.bankIdPos;
+        document.getElementById('bankIdPattern').textContent = registry.bankIdPattern;
+        document.getElementById('effectiveDate').textContent = registry.effectiveDate;
+        document.getElementById('authority').textContent = registry.authority;
+        document.getElementById('contactEmail').textContent = registry.contactEmail;
+
+        // Try to find bank info for German IBANs
+        if (countryCode === 'DE') {
+          const bankCode = extractBankCodeFromIBAN(iban, countryCode);
+          if (bankCode) {
+            const bankInfo = findBankInfo(countryCode, bankCode);
+            if (bankInfo) {
+              document.getElementById('bankName').textContent = bankInfo.bankName;
+              document.getElementById('swiftCode').textContent = bankInfo.swiftCode;
+              bicInfo.style.display = 'block';
+            }
+          }
+        }
+
+      } else {
+        result.textContent = 'Invalid IBAN ❌';
+        result.className = 'status error';
+        details.style.display = 'none';
+      }
+    });
+</script>
+</body>
+</html>
